@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>snip</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; padding: 0 1rem; }
+    input, button { font: inherit; padding: .5rem; }
+    input { width: 70%; }
+  </style>
+</head>
+<body>
+  <h1>snip</h1>
+  <p>Paste a long URL to shorten it.</p>
+  <form id="form">
+    <input id="url" type="url" placeholder="https://example.com/a/very/long/link" required>
+    <button>Shorten</button>
+  </form>
+  <p id="out"></p>
+  <script>
+    document.getElementById('form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const out = document.getElementById('out');
+      const res = await fetch('/api/links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: document.getElementById('url').value }),
+      });
+      const data = await res.json();
+      out.textContent = '';
+      if (res.ok) {
+        const link = document.createElement('a');
+        link.href = link.textContent = data.shortUrl;
+        out.append(link);
+      } else {
+        out.textContent = data.error;
+      }
+    });
+  </script>
+</body>
+</html>
