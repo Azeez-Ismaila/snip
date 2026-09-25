@@ -15,6 +15,10 @@ npm run dev     # http://localhost:3000
 npm test
 npm run lint
 ```
+## Run with Docker
+```bash
+cp .env.example .env          # then set a real password
+docker compose up --build -d  # http://localhost:3000
 
 ## API
 | Method | Path | Description |
@@ -27,7 +31,7 @@ npm run lint
 ## Roadmap
 - [x] Phase 1: Node.js/Express API with tests
 - [x] Phase 2: GitHub workflow (protected main, PRs, squash merges)
-- [ ] Phase 3: Docker and Docker Compose (PostgreSQL, Redis)
+- [x] Phase 3: Docker and Docker Compose (PostgreSQL, Redis)
 - [ ] Phase 4: CI pipeline with GitHub Actions
 - [ ] Phase 5: Terraform on Proxmox
 - [ ] Phase 6: Ansible configuration
