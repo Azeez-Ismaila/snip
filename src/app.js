@@ -17,7 +17,7 @@ function isValidUrl(value) {
 // 5 random bytes -> 7 URL-safe characters, e.g. "aB3xY9q"
 const newCode = () => randomBytes(5).toString('base64url');
 
-// The app is built by a function that receives its dependencies (store, logger).
+// This app is built by a function that receives its dependencies (store, logger).
 // Tests pass in a fresh in-memory store; production passes in the real one.
 export function createApp({ store, baseUrl, logger }) {
   const app = express();
