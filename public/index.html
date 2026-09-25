@@ -3,40 +3,356 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>snip</title>
+  <meta name="description" content="snip: a fast, simple URL shortener">
+  <title>snip · URL shortener</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
   <style>
-    body { font-family: system-ui, sans-serif; max-width: 32rem; margin: 4rem auto; padding: 0 1rem; }
-    input, button { font: inherit; padding: .5rem; }
-    input { width: 70%; }
+    :root {
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --text: #161a23;
+      --muted: #667085;
+      --border: #e4e7ec;
+      --accent: #5b5bd6;
+      --accent-hover: #4a4ac4;
+      --on-accent: #ffffff;
+      --accent-soft: #eeeefc;
+      --ok: #12b76a;
+      --err: #d92d20;
+      --radius: 14px;
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1117;
+        --card: #171a23;
+        --text: #e7e9ee;
+        --muted: #98a2b3;
+        --border: #2a2f3a;
+        --accent: #8b8bf5;
+        --accent-hover: #a3a3f8;
+        --on-accent: #0f1117;
+        --accent-soft: #23234a;
+        --err: #f97066;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .wrap { max-width: 40rem; margin: 0 auto; padding: 4rem 1rem 2rem; }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+    .brand { display: flex; align-items: center; gap: .9rem; margin-bottom: 2rem; }
+    .logo {
+      display: grid; place-items: center;
+      width: 3rem; height: 3rem; border-radius: 12px;
+      background: var(--accent); color: var(--on-accent);
+      font-size: 1.5rem;
+    }
+    h1 { margin: 0; font-size: 1.75rem; letter-spacing: -.02em; }
+    .tagline { margin: 0; color: var(--muted); }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .shorten { display: flex; gap: .5rem; }
+    input {
+      flex: 1; min-width: 0;
+      font: inherit; color: inherit;
+      padding: .8rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    button {
+      font: inherit; font-weight: 600; cursor: pointer;
+      padding: .8rem 1.25rem;
+      border: 0; border-radius: 10px;
+      background: var(--accent); color: var(--on-accent);
+      transition: background .15s, opacity .15s;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: .6; cursor: progress; }
+    button.ghost {
+      background: transparent; color: var(--accent);
+      border: 1px solid var(--border);
+      padding: .5rem .9rem; font-size: .9rem;
+    }
+    button.ghost:hover { background: var(--accent-soft); }
+    button.ghost.copied { color: var(--ok); border-color: var(--ok); }
+    .link-btn { background: none; color: var(--muted); padding: 0; font-weight: 500; font-size: .9rem; }
+    .link-btn:hover { background: none; color: var(--text); }
+
+    .error { margin: .75rem 0 0; color: var(--err); font-size: .95rem; }
+
+    .result {
+      display: flex; align-items: center; gap: 1rem;
+      margin-top: 1.25rem; padding: 1rem 1.1rem;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: 12px;
+      animation: pop .2s ease-out;
+    }
+    .result-main, .recent-main { flex: 1; min-width: 0; }
+    .short { color: var(--accent); font-weight: 700; font-size: 1.15rem; text-decoration: none; }
+    .short:hover { text-decoration: underline; }
+    .original {
+      margin: .15rem 0 0; color: var(--muted); font-size: .9rem;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    }
+
+    .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+    h2 { margin: 0; font-size: 1rem; }
+    .recent { list-style: none; margin: 0; padding: 0; }
+    .recent-item { display: flex; align-items: center; gap: .75rem; padding: .8rem 0; border-top: 1px solid var(--border); }
+    .recent-item:first-child { border-top: 0; }
+    .recent-item .short { font-size: 1rem; }
+    .clicks {
+      flex-shrink: 0; font-size: .8rem; font-weight: 600; color: var(--muted);
+      background: var(--bg); border: 1px solid var(--border);
+      padding: .15rem .6rem; border-radius: 999px;
+    }
+    .recent-item.expired .short { color: var(--muted); text-decoration: line-through; }
+    .recent-item.expired .clicks { color: var(--err); }
+
+    .footer {
+      display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem;
+      margin-top: 2rem; color: var(--muted); font-size: .85rem;
+    }
+    .status { display: inline-flex; align-items: center; gap: .45rem; }
+    .dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--muted); }
+    .status.up .dot { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+    .status.down .dot { background: var(--err); }
+
+    @keyframes pop { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .result { animation: none; } }
+    @media (max-width: 520px) {
+      .wrap { padding-top: 2rem; }
+      .shorten { flex-direction: column; }
+      .result { flex-direction: column; align-items: stretch; }
+    }
   </style>
 </head>
 <body>
-  <h1>snip</h1>
-  <p>Paste a long URL to shorten it.</p>
-  <form id="form">
-    <input id="url" type="url" placeholder="https://example.com/a/very/long/link" required>
-    <button>Shorten</button>
-  </form>
-  <p id="out"></p>
+  <main class="wrap">
+    <header class="brand">
+      <div class="logo" aria-hidden="true">✂</div>
+      <div>
+        <h1>snip</h1>
+        <p class="tagline">Turn long links into short ones.</p>
+      </div>
+    </header>
+
+    <section class="card">
+      <form id="form" class="shorten" novalidate>
+        <label for="url" class="sr-only">Long URL</label>
+        <input id="url" type="url" placeholder="Paste a long URL, e.g. https://example.com/…" autocomplete="off" autofocus>
+        <button id="submit" type="submit">Shorten</button>
+      </form>
+      <p id="error" class="error" role="alert" hidden></p>
+
+      <div id="result" class="result" hidden>
+        <div class="result-main">
+          <a id="short" class="short" target="_blank" rel="noopener"></a>
+          <p id="original" class="original"></p>
+        </div>
+        <button id="copy" class="ghost" type="button">Copy</button>
+      </div>
+    </section>
+
+    <section id="recent-card" class="card" hidden>
+      <div class="section-head">
+        <h2>Your recent links</h2>
+        <button id="clear" class="link-btn" type="button">Clear</button>
+      </div>
+      <ul id="recent" class="recent"></ul>
+    </section>
+
+    <footer class="footer">
+      <span id="status" class="status"><span class="dot"></span><span id="status-text">Checking API…</span></span>
+      <span>A DevOps portfolio project by Azeez Ismaila</span>
+    </footer>
+  </main>
+
   <script>
-    document.getElementById('form').addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const out = document.getElementById('out');
-      const res = await fetch('/api/links', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: document.getElementById('url').value }),
-      });
-      const data = await res.json();
-      out.textContent = '';
-      if (res.ok) {
+    const $ = (id) => document.getElementById(id);
+    const STORAGE_KEY = 'snip:recent';
+
+    // Recent links are remembered in this browser only (localStorage).
+    function loadRecent() {
+      try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? []; } catch { return []; }
+    }
+    function saveRecent(items) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, 10))); } catch { /* storage unavailable */ }
+    }
+
+    const displayUrl = (url) => url.replace(/^https?:\/\//, '');
+
+    async function copyText(text, button) {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        // Clipboard API needs HTTPS or localhost; fall back for plain-HTTP servers
+        const area = document.createElement('textarea');
+        area.value = text;
+        area.style.position = 'fixed';
+        area.style.opacity = '0';
+        document.body.append(area);
+        area.select();
+        document.execCommand('copy');
+        area.remove();
+      }
+      button.dataset.label ??= button.textContent;
+      button.textContent = 'Copied!';
+      button.classList.add('copied');
+      setTimeout(() => {
+        button.textContent = button.dataset.label;
+        button.classList.remove('copied');
+      }, 1500);
+    }
+
+    function showError(message) {
+      $('error').textContent = message;
+      $('error').hidden = !message;
+    }
+
+    function showResult(link) {
+      $('short').href = link.shortUrl;
+      $('short').textContent = displayUrl(link.shortUrl);
+      $('original').textContent = link.url;
+      $('original').title = link.url;
+      $('result').hidden = false;
+    }
+
+    async function loadClicks(code, badge, row) {
+      try {
+        const res = await fetch(`/api/links/${encodeURIComponent(code)}`, { cache: 'no-store' });
+        if (res.status === 404) {
+          row.classList.add('expired');
+          badge.textContent = 'expired';
+          badge.title = 'Not found on the server. Links are kept in memory, so they vanish when the app restarts.';
+          return;
+        }
+        const { clicks } = await res.json();
+        badge.textContent = `${clicks} ${clicks === 1 ? 'click' : 'clicks'}`;
+      } catch {
+        badge.textContent = '–';
+      }
+    }
+
+    function renderRecent() {
+      const items = loadRecent();
+      $('recent-card').hidden = items.length === 0;
+      const list = $('recent');
+      list.replaceChildren();
+
+      for (const item of items) {
+        const row = document.createElement('li');
+        row.className = 'recent-item';
+
+        const main = document.createElement('div');
+        main.className = 'recent-main';
         const link = document.createElement('a');
-        link.href = link.textContent = data.shortUrl;
-        out.append(link);
-      } else {
-        out.textContent = data.error;
+        link.className = 'short';
+        link.href = item.shortUrl;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.textContent = displayUrl(item.shortUrl);
+        const original = document.createElement('p');
+        original.className = 'original';
+        original.textContent = item.url;
+        original.title = item.url;
+        main.append(link, original);
+
+        const badge = document.createElement('span');
+        badge.className = 'clicks';
+        badge.textContent = '…';
+
+        const copy = document.createElement('button');
+        copy.className = 'ghost';
+        copy.type = 'button';
+        copy.textContent = 'Copy';
+        copy.addEventListener('click', () => copyText(item.shortUrl, copy));
+
+        row.append(main, badge, copy);
+        list.append(row);
+        loadClicks(item.code, badge, row);
+      }
+    }
+
+    $('form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      showError('');
+      const url = $('url').value.trim();
+      if (!url) return showError('Paste a URL first.');
+
+      $('submit').disabled = true;
+      $('submit').textContent = 'Shortening…';
+      try {
+        const res = await fetch('/api/links', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json();
+        if (!res.ok) return showError(data.error ?? 'Something went wrong.');
+
+        showResult(data);
+        const items = loadRecent().filter((item) => item.code !== data.code);
+        items.unshift({ code: data.code, url: data.url, shortUrl: data.shortUrl });
+        saveRecent(items);
+        renderRecent();
+        $('url').value = '';
+      } catch {
+        showError('Could not reach the server. Is it running?');
+      } finally {
+        $('submit').disabled = false;
+        $('submit').textContent = 'Shorten';
       }
     });
+
+    $('copy').addEventListener('click', () => copyText($('short').href, $('copy')));
+
+    $('clear').addEventListener('click', () => {
+      saveRecent([]);
+      $('result').hidden = true;
+      renderRecent();
+    });
+
+    // Refresh click counts when you come back to the tab (e.g. after opening a short link)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') renderRecent();
+    });
+
+    // Live health indicator, backed by the same /healthz endpoint Kubernetes will use
+    async function checkHealth() {
+      let ok = false;
+      try {
+        ok = (await fetch('/healthz', { cache: 'no-store' })).ok;
+      } catch { /* network error means down */ }
+      $('status').classList.toggle('up', ok);
+      $('status').classList.toggle('down', !ok);
+      $('status-text').textContent = ok ? 'API healthy' : 'API unreachable';
+    }
+
+    renderRecent();
+    checkHealth();
+    setInterval(checkHealth, 30_000);
   </script>
 </body>
 </html>
