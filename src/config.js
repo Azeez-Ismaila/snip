@@ -6,4 +6,5 @@ export const config = {
   port,
   baseUrl: process.env.BASE_URL ?? `http://localhost:${port}`,
   logLevel: process.env.LOG_LEVEL ?? 'info',
+  databaseUrl: process.env.DATABASE_URL, // Unset = in-memory storage
 };

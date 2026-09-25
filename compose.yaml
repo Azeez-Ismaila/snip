@@ -1,0 +1,31 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://snip:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/snip
+      BASE_URL: http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy # Wait until Postgres accepts connections, not just "started"
+    restart: unless-stopped
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: snip
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: snip
+    volumes:
+      - pgdata:/var/lib/postgresql/data # Data lives outside the container
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U snip -d snip"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+    # No "ports:" here on purpose. Only the app can reach the database.
+
+volumes:
+  pgdata:
